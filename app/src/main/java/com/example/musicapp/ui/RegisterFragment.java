@@ -19,9 +19,10 @@ import com.example.musicapp.databinding.FragmentRegisterBinding;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import com.example.musicapp.models.User;
+
 import java.util.Calendar;
-import java.util.HashMap;
-import java.util.Map;
+
 
 public class RegisterFragment extends Fragment {
 
@@ -76,13 +77,11 @@ public class RegisterFragment extends Fragment {
             DatePickerDialog datePickerDialog = new DatePickerDialog(
                     requireContext(),
                     (view, selectedYear, selectedMonth, selectedDay) -> {
-                        // Months are indexed from 0, so we add 1
                         String formattedDate = selectedDay + "/" + (selectedMonth + 1) + "/" + selectedYear;
                         binding.etBirthdate.setText(formattedDate);
                     },
                     year, month, day);
 
-            // Optional: Prevent selecting future dates for birthdate
             datePickerDialog.getDatePicker().setMaxDate(System.currentTimeMillis());
             datePickerDialog.show();
         });
@@ -162,19 +161,13 @@ public class RegisterFragment extends Fragment {
         }
 
         // --- Execute Firebase Registration ---
-
         mAuth.createUserWithEmailAndPassword(email, password)
                 .addOnSuccessListener(authResult -> {
                     String uid = authResult.getUser().getUid();
 
-                    // HashMap to structure data before sending to Firestore
-                    Map<String, Object> userProfile = new HashMap<>();
-                    userProfile.put("fullName", fullName);
-                    userProfile.put("gender", gender);
-                    userProfile.put("birthdate", birthdate);
-                    userProfile.put("email", email);
+                    User newUserProfile = new User(fullName, gender, birthdate, email);
 
-                    db.collection("users").document(uid).set(userProfile)
+                    db.collection("users").document(uid).set(newUserProfile)
                             .addOnSuccessListener(aVoid -> {
                                 Toast.makeText(requireContext(), "Registration successful!", Toast.LENGTH_SHORT).show();
                                 Navigation.findNavController(view).navigate(R.id.searchFragment);
@@ -186,6 +179,9 @@ public class RegisterFragment extends Fragment {
                 .addOnFailureListener(e -> {
                     Toast.makeText(requireContext(), "Registration Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
+
+
+
     }
 
     @Override
