@@ -80,7 +80,7 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"
         android:padding="12dp"
-        android:text="REGISTER" />
+        android:text="@string/register" />
 
     <TextView
         android:id="@+id/tv_login_prompt"
