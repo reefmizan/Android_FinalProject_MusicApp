@@ -12,18 +12,15 @@ import com.google.android.material.bottomnavigation.BottomNavigationView;
 
 public class MainActivity extends AppCompatActivity {
 
-    // בונוס/חובה: שימוש ב-ViewBinding למניעת findViewById וקריסות זיכרון
     private ActivityMainBinding binding;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // 1. ניפוח המסך בעזרת ה-Binding והצגתו
         binding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(binding.getRoot());
 
-        // 2. מציאת מנהל הניווט (NavController) מתוך ה-FragmentContainerView
         NavHostFragment navHostFragment = (NavHostFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.nav_host_fragment);
 
@@ -31,15 +28,13 @@ public class MainActivity extends AppCompatActivity {
             NavController navController = navHostFragment.getNavController();
             BottomNavigationView bottomNav = binding.bottomNavigation;
 
-            // 3. קסם המיפוי (Magic Mapping) - חיבור אוטומטי של התפריט התחתון למערכת הניווט
             NavigationUI.setupWithNavController(bottomNav, navController);
 
-            // 4. ניהול ממשק גלובלי: הסתרת התפריט התחתון במסכי הזדהות (Login/Register)
             navController.addOnDestinationChangedListener((controller, destination, arguments) -> {
                 if (destination.getId() == R.id.loginFragment || destination.getId() == R.id.registerFragment) {
-                    bottomNav.setVisibility(View.GONE); // מסתיר את התפריט
+                    bottomNav.setVisibility(View.GONE);
                 } else {
-                    bottomNav.setVisibility(View.VISIBLE); // מציג את התפריט בשאר המסכים
+                    bottomNav.setVisibility(View.VISIBLE);
                 }
             });
         }
