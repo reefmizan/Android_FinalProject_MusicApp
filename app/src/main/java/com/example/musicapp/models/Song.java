@@ -16,7 +16,6 @@ public class Song {
     @SerializedName("previewUrl")
     private String previewUrl;
 
-    // IMPORTANT: Empty constructor is required for Firebase Firestore serialization!
     public Song() {}
 
     public Song(String trackName, String artistName, String artworkUrl, String previewUrl) {
