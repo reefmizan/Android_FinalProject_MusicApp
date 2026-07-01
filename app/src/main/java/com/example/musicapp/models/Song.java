@@ -9,14 +9,21 @@ public class Song {
     @SerializedName("artistName")
     private String artistName;
 
-    // iTunes API returns the image URL under "artworkUrl100"
     @SerializedName("artworkUrl100")
     private String artworkUrl;
 
-    public Song(String trackName, String artistName, String artworkUrl) {
+    // The 30-second audio preview link from iTunes
+    @SerializedName("previewUrl")
+    private String previewUrl;
+
+    // IMPORTANT: Empty constructor is required for Firebase Firestore serialization!
+    public Song() {}
+
+    public Song(String trackName, String artistName, String artworkUrl, String previewUrl) {
         this.trackName = trackName;
         this.artistName = artistName;
         this.artworkUrl = artworkUrl;
+        this.previewUrl = previewUrl;
     }
 
     public String getTrackName() {
@@ -29,5 +36,9 @@ public class Song {
 
     public String getArtworkUrl() {
         return artworkUrl;
+    }
+
+    public String getPreviewUrl() {
+        return previewUrl;
     }
 }

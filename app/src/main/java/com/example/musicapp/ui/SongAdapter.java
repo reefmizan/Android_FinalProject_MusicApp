@@ -13,17 +13,27 @@ import java.util.List;
 public class SongAdapter extends RecyclerView.Adapter<SongAdapter.SongViewHolder> {
 
     private List<Song> songsList = new ArrayList<>();
+    private final OnSongInteractionListener listener;
 
-    // Method to update the list when new search results arrive
+    // Interface to handle button clicks inside the row
+    public interface OnSongInteractionListener {
+        void onPlayClick(Song song);
+        void onFavoriteClick(Song song);
+    }
+
+    // Constructor now requires the listener
+    public SongAdapter(OnSongInteractionListener listener) {
+        this.listener = listener;
+    }
+
     public void setSongs(List<Song> songs) {
         this.songsList = songs;
-        notifyDataSetChanged(); // Refreshes the UI
+        notifyDataSetChanged();
     }
 
     @NonNull
     @Override
     public SongViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        // Inflate the item layout using ViewBinding
         ItemSongBinding binding = ItemSongBinding.inflate(LayoutInflater.from(parent.getContext()), parent, false);
         return new SongViewHolder(binding);
     }
@@ -31,7 +41,7 @@ public class SongAdapter extends RecyclerView.Adapter<SongAdapter.SongViewHolder
     @Override
     public void onBindViewHolder(@NonNull SongViewHolder holder, int position) {
         Song currentSong = songsList.get(position);
-        holder.bind(currentSong);
+        holder.bind(currentSong, listener);
     }
 
     @Override
@@ -39,7 +49,6 @@ public class SongAdapter extends RecyclerView.Adapter<SongAdapter.SongViewHolder
         return songsList.size();
     }
 
-    // ViewHolder class holds the views for a single item row
     static class SongViewHolder extends RecyclerView.ViewHolder {
         private final ItemSongBinding binding;
 
@@ -48,14 +57,17 @@ public class SongAdapter extends RecyclerView.Adapter<SongAdapter.SongViewHolder
             this.binding = binding;
         }
 
-        public void bind(Song song) {
+        public void bind(Song song, OnSongInteractionListener listener) {
             binding.tvTrackName.setText(song.getTrackName());
             binding.tvArtistName.setText(song.getArtistName());
 
-            // Use Glide library to load the image from the URL into the ImageView
             Glide.with(binding.getRoot().getContext())
                     .load(song.getArtworkUrl())
                     .into(binding.ivAlbumCover);
+
+            // Handle Clicks
+            binding.btnPlay.setOnClickListener(v -> listener.onPlayClick(song));
+            binding.btnFavorite.setOnClickListener(v -> listener.onFavoriteClick(song));
         }
     }
 }
