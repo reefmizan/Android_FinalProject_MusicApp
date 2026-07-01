@@ -24,8 +24,6 @@ public class FavoritesFragment extends Fragment implements SongAdapter.OnSongInt
     private FragmentFavoritesBinding binding;
     private SongAdapter songAdapter;
     private MediaPlayer mediaPlayer;
-
-    // The ViewModel instance
     private MusicViewModel musicViewModel;
 
     @Override
@@ -38,16 +36,12 @@ public class FavoritesFragment extends Fragment implements SongAdapter.OnSongInt
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // 1. Initialize the ViewModel
         musicViewModel = new ViewModelProvider(this).get(MusicViewModel.class);
 
         setupMediaPlayer();
         setupRecyclerView();
-
-        // 2. Start observing data changes from the ViewModel
         observeViewModel();
 
-        // 3. Trigger fetching favorites from Firestore when the screen opens
         musicViewModel.loadFavoriteSongs();
     }
 
@@ -67,27 +61,25 @@ public class FavoritesFragment extends Fragment implements SongAdapter.OnSongInt
         );
     }
 
-    /**
-     * Observes the LiveData streams from the ViewModel.
-     */
     private void observeViewModel() {
-        // Listen for the favorite songs list
+        // Listen for favorite songs updates
         musicViewModel.getFavoriteSongs().observe(getViewLifecycleOwner(), songs -> {
             if (songs != null) {
                 if (songs.isEmpty()) {
-                    // Show empty state text if there are no favorites
                     binding.tvEmptyState.setVisibility(View.VISIBLE);
                     binding.rvFavorites.setVisibility(View.GONE);
                 } else {
-                    // Show the RecyclerView and hide empty state
                     binding.tvEmptyState.setVisibility(View.GONE);
                     binding.rvFavorites.setVisibility(View.VISIBLE);
+
+                    // Pass the list to display AND the list for the yellow star highlight
                     songAdapter.setSongs(songs);
+                    songAdapter.setFavoriteSongs(songs);
                 }
             }
         });
 
-        // Listen for error messages (network/database failures)
+        // Listen for error messages
         musicViewModel.getErrorMessage().observe(getViewLifecycleOwner(), errorMsg -> {
             if (errorMsg != null) {
                 Toast.makeText(requireContext(), errorMsg, Toast.LENGTH_LONG).show();
@@ -99,6 +91,12 @@ public class FavoritesFragment extends Fragment implements SongAdapter.OnSongInt
 
     @Override
     public void onPlayClick(Song song) {
+        // Stop playback if song is null (pause toggle)
+        if (song == null) {
+            mediaPlayer.reset();
+            return;
+        }
+
         if (song.getPreviewUrl() == null || song.getPreviewUrl().isEmpty()) {
             Toast.makeText(requireContext(), "No audio preview available", Toast.LENGTH_SHORT).show();
             return;
@@ -121,8 +119,8 @@ public class FavoritesFragment extends Fragment implements SongAdapter.OnSongInt
     }
 
     @Override
-    public void onFavoriteClick(Song song) {
-        // Delegate the delete operation to the ViewModel
+    public void onFavoriteClick(Song song, boolean isFavorite) {
+        // Always remove from favorites when clicked inside the Favorites screen
         musicViewModel.removeSongFromFavorites(song);
         Toast.makeText(requireContext(), "Removing from favorites...", Toast.LENGTH_SHORT).show();
     }
@@ -130,7 +128,7 @@ public class FavoritesFragment extends Fragment implements SongAdapter.OnSongInt
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        // Release the media player resources when leaving the screen
+        // Release the media player resources
         if (mediaPlayer != null) {
             mediaPlayer.release();
             mediaPlayer = null;

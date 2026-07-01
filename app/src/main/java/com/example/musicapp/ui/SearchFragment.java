@@ -24,8 +24,6 @@ public class SearchFragment extends Fragment implements SongAdapter.OnSongIntera
     private FragmentSearchBinding binding;
     private SongAdapter songAdapter;
     private MediaPlayer mediaPlayer;
-
-    // The ViewModel instance
     private MusicViewModel musicViewModel;
 
     @Override
@@ -38,23 +36,21 @@ public class SearchFragment extends Fragment implements SongAdapter.OnSongIntera
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // 1. Initialize the ViewModel
         musicViewModel = new ViewModelProvider(this).get(MusicViewModel.class);
 
         setupMediaPlayer();
         setupRecyclerView();
-
-        // 2. Start observing data changes from the ViewModel
         observeViewModel();
 
-        // 3. Delegate search action to the ViewModel
+        // Load user's favorites so the adapter knows which stars to paint yellow
+        musicViewModel.loadFavoriteSongs();
+
         binding.btnSearch.setOnClickListener(v -> {
             String query = binding.etSearchQuery.getText().toString().trim();
             if (query.isEmpty()) {
                 Toast.makeText(requireContext(), "Please enter a search term", Toast.LENGTH_SHORT).show();
                 return;
             }
-            // The ViewModel will handle the background network call
             musicViewModel.searchSongs(query);
         });
     }
@@ -75,12 +71,8 @@ public class SearchFragment extends Fragment implements SongAdapter.OnSongIntera
         );
     }
 
-    /**
-     * Observes the LiveData streams from the ViewModel.
-     * When the ViewModel fetches new data, the UI updates automatically.
-     */
     private void observeViewModel() {
-        // Listen for successful search results
+        // Observe search results
         musicViewModel.getSearchResults().observe(getViewLifecycleOwner(), songs -> {
             if (songs != null) {
                 if (songs.isEmpty()) {
@@ -90,7 +82,14 @@ public class SearchFragment extends Fragment implements SongAdapter.OnSongIntera
             }
         });
 
-        // Listen for error messages (network/database failures)
+        // Observe favorite songs to update the UI (Yellow Stars)
+        musicViewModel.getFavoriteSongs().observe(getViewLifecycleOwner(), favorites -> {
+            if (favorites != null) {
+                songAdapter.setFavoriteSongs(favorites);
+            }
+        });
+
+        // Observe errors
         musicViewModel.getErrorMessage().observe(getViewLifecycleOwner(), errorMsg -> {
             if (errorMsg != null) {
                 Toast.makeText(requireContext(), errorMsg, Toast.LENGTH_LONG).show();
@@ -102,6 +101,12 @@ public class SearchFragment extends Fragment implements SongAdapter.OnSongIntera
 
     @Override
     public void onPlayClick(Song song) {
+        // Stop playback if song is null (pause toggle)
+        if (song == null) {
+            mediaPlayer.reset();
+            return;
+        }
+
         if (song.getPreviewUrl() == null || song.getPreviewUrl().isEmpty()) {
             Toast.makeText(requireContext(), "No audio preview available", Toast.LENGTH_SHORT).show();
             return;
@@ -125,16 +130,20 @@ public class SearchFragment extends Fragment implements SongAdapter.OnSongIntera
     }
 
     @Override
-    public void onFavoriteClick(Song song) {
-        // Delegate the save operation to the ViewModel
-        musicViewModel.addSongToFavorites(song);
-        Toast.makeText(requireContext(), "Saving to favorites...", Toast.LENGTH_SHORT).show();
+    public void onFavoriteClick(Song song, boolean isFavorite) {
+        if (isFavorite) {
+            musicViewModel.removeSongFromFavorites(song);
+            Toast.makeText(requireContext(), "Removing from favorites...", Toast.LENGTH_SHORT).show();
+        } else {
+            musicViewModel.addSongToFavorites(song);
+            Toast.makeText(requireContext(), "Saving to favorites...", Toast.LENGTH_SHORT).show();
+        }
     }
 
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-        // Release the media player resources to prevent memory leaks
+        // Release media player resources to prevent memory leaks
         if (mediaPlayer != null) {
             mediaPlayer.release();
             mediaPlayer = null;
