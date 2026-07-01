@@ -1,5 +1,7 @@
 package com.example.musicapp.ui;
 
+import android.media.AudioAttributes;
+import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -9,18 +11,22 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import androidx.lifecycle.ViewModelProvider;
 import androidx.recyclerview.widget.LinearLayoutManager;
 
 import com.example.musicapp.databinding.FragmentSearchBinding;
 import com.example.musicapp.models.Song;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.io.IOException;
 
-public class SearchFragment extends Fragment {
+public class SearchFragment extends Fragment implements SongAdapter.OnSongInteractionListener {
 
     private FragmentSearchBinding binding;
     private SongAdapter songAdapter;
+    private MediaPlayer mediaPlayer;
+
+    // The ViewModel instance
+    private MusicViewModel musicViewModel;
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -32,67 +38,107 @@ public class SearchFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
+        // 1. Initialize the ViewModel
+        musicViewModel = new ViewModelProvider(this).get(MusicViewModel.class);
+
+        setupMediaPlayer();
         setupRecyclerView();
 
+        // 2. Start observing data changes from the ViewModel
+        observeViewModel();
+
+        // 3. Delegate search action to the ViewModel
         binding.btnSearch.setOnClickListener(v -> {
             String query = binding.etSearchQuery.getText().toString().trim();
             if (query.isEmpty()) {
                 Toast.makeText(requireContext(), "Please enter a search term", Toast.LENGTH_SHORT).show();
                 return;
             }
-
-            // Execute real network call instead of mock
-            searchSongsFromApi(query);
+            // The ViewModel will handle the background network call
+            musicViewModel.searchSongs(query);
         });
     }
 
-    /**
-     * Fetches songs from the iTunes API using Retrofit
-     */
-    private void searchSongsFromApi(String query) {
-        // Enqueue puts the network request on a background thread
-        com.example.musicapp.network.ApiClient.getInstance().getApi().searchSongs(query, "music")
-                .enqueue(new retrofit2.Callback<com.example.musicapp.models.ITunesResponse>() {
-
-                    @Override
-                    public void onResponse(retrofit2.Call<com.example.musicapp.models.ITunesResponse> call,
-                                           retrofit2.Response<com.example.musicapp.models.ITunesResponse> response) {
-
-                        if (response.isSuccessful() && response.body() != null) {
-                            // Extract the list of songs from the JSON wrapper
-                            List<com.example.musicapp.models.Song> realResults = response.body().getResults();
-
-                            if (realResults.isEmpty()) {
-                                Toast.makeText(requireContext(), "No songs found", Toast.LENGTH_SHORT).show();
-                            }
-
-                            // Send the data to the adapter to update the RecyclerView
-                            songAdapter.setSongs(realResults);
-                        } else {
-                            Toast.makeText(requireContext(), "Server Error", Toast.LENGTH_SHORT).show();
-                        }
-                    }
-
-                    @Override
-                    public void onFailure(retrofit2.Call<com.example.musicapp.models.ITunesResponse> call, Throwable t) {
-                        Toast.makeText(requireContext(), "Network Error: " + t.getMessage(), Toast.LENGTH_LONG).show();
-                    }
-                });
-    }
-
-    /**
-     * Initializes the RecyclerView and its Adapter
-     */
     private void setupRecyclerView() {
-        songAdapter = new SongAdapter();
+        songAdapter = new SongAdapter(this);
         binding.rvSongs.setLayoutManager(new LinearLayoutManager(requireContext()));
         binding.rvSongs.setAdapter(songAdapter);
     }
 
+    private void setupMediaPlayer() {
+        mediaPlayer = new MediaPlayer();
+        mediaPlayer.setAudioAttributes(
+                new AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .build()
+        );
+    }
+
+    /**
+     * Observes the LiveData streams from the ViewModel.
+     * When the ViewModel fetches new data, the UI updates automatically.
+     */
+    private void observeViewModel() {
+        // Listen for successful search results
+        musicViewModel.getSearchResults().observe(getViewLifecycleOwner(), songs -> {
+            if (songs != null) {
+                if (songs.isEmpty()) {
+                    Toast.makeText(requireContext(), "No songs found", Toast.LENGTH_SHORT).show();
+                }
+                songAdapter.setSongs(songs);
+            }
+        });
+
+        // Listen for error messages (network/database failures)
+        musicViewModel.getErrorMessage().observe(getViewLifecycleOwner(), errorMsg -> {
+            if (errorMsg != null) {
+                Toast.makeText(requireContext(), errorMsg, Toast.LENGTH_LONG).show();
+            }
+        });
+    }
+
+    // --- Implement Interface Methods ---
+
+    @Override
+    public void onPlayClick(Song song) {
+        if (song.getPreviewUrl() == null || song.getPreviewUrl().isEmpty()) {
+            Toast.makeText(requireContext(), "No audio preview available", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        try {
+            mediaPlayer.reset();
+            mediaPlayer.setDataSource(song.getPreviewUrl());
+            mediaPlayer.prepareAsync();
+
+            Toast.makeText(requireContext(), "Loading audio...", Toast.LENGTH_SHORT).show();
+
+            mediaPlayer.setOnPreparedListener(mp -> {
+                mp.start();
+                Toast.makeText(requireContext(), "Playing: " + song.getTrackName(), Toast.LENGTH_SHORT).show();
+            });
+
+        } catch (IOException e) {
+            Toast.makeText(requireContext(), "Error playing audio", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    public void onFavoriteClick(Song song) {
+        // Delegate the save operation to the ViewModel
+        musicViewModel.addSongToFavorites(song);
+        Toast.makeText(requireContext(), "Saving to favorites...", Toast.LENGTH_SHORT).show();
+    }
 
     @Override
     public void onDestroyView() {
         super.onDestroyView();
+        // Release the media player resources to prevent memory leaks
+        if (mediaPlayer != null) {
+            mediaPlayer.release();
+            mediaPlayer = null;
+        }
         binding = null;
     }
 }
