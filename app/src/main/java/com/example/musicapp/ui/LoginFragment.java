@@ -34,12 +34,12 @@ public class LoginFragment extends Fragment {
         mAuth = FirebaseAuth.getInstance();
 
         // Auto-login: If the user is already logged in, skip the login screen
-        /*
+
         if (mAuth.getCurrentUser() != null) {
             Navigation.findNavController(view).navigate(R.id.searchFragment);
             return;
         }
-        */
+
 
         binding.btnLogin.setOnClickListener(v -> loginUser(view));
 
